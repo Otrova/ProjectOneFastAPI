@@ -21,7 +21,7 @@ async def users():
 
 
 #---METODO GET USER POR ID
-routerUsers.get("/{id}")
+@routerUsers.get("/{id}")
 async def user(id: str):
     return searchUser("_id", ObjectId(id))
 
@@ -47,6 +47,14 @@ async def createUser(user: User):
     newUser = userSchema(dbClient.local.users.find_one({"_id": idUser}))
     return User(**newUser)
 
+##---METODO DELETE
+@routerUsers.delete("/{id}", status_code = status.HTTP_204_NO_CONTENT)
+async def deleteUser(id: str):
+    found = dbClient.local.users.find_one_and_delete({"_id": ObjectId(id)})
+
+    if not found:
+        return {"error": f"Usuario no encontrado con id: {id}"}
+
 
 
 
@@ -60,11 +68,11 @@ def searchUser(key: str, value) -> User:
             # Aca validaremos que la busqueda en la base de datos me haya retornado
             # algo, de lo contrario retornaremos que el usuario no ha sido encontrado 
         
-        # user["_id"] = str(user["_id"])
+        userDict = userSchema(user)
         # # Aca estamos convirtiendo el campo de objectId y lo convetimos a string
         # # para poder hacer la contruccion del objeto User
         
-        return User(**user)
+        return User(**userDict)
     except:
         # raise HTTPException( status_code = status.HTTP_404_NOT_FOUND, detail = "Usuario no encontrado" )
         return {"error": "No se ha encontrado el usuario"}

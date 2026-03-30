@@ -66,4 +66,5 @@ def searchUser(key: str, value) -> User:
         
         return User(**user)
     except:
-        raise HTTPException( status_code = status.HTTP_404_NOT_FOUND, detail = "Usuario no encontrado" )
+        # raise HTTPException( status_code = status.HTTP_404_NOT_FOUND, detail = "Usuario no encontrado" )
+        return {"error": "No se ha encontrado el usuario"}

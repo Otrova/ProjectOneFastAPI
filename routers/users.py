@@ -54,6 +54,23 @@ async def deleteUser(id: str):
 
     if not found:
         return {"error": f"Usuario no encontrado con id: {id}"}
+    
+##--- METODO PUT
+@routerUsers.put("/", response_model = User)
+async def updateUser(user: User):
+    userDict = dict(user)
+    del userDict["id"]
+
+    try:
+        dbClient.local.users.find_one_and_replace({"_id": ObjectId(user.id)}, userDict)
+    except:
+        return {"error": "No se ha encontrado el usuario"}
+    
+    return searchUser("_id", ObjectId(user.id))
+    # si el usuario fue actualizado correctamente le diremos que vaya y lo busque con el id
+    # que tenia el user antes de transformarlo en diccionario, si lo encuentra quiere decir
+    # que el usuario se actualizo
+
 
 
 

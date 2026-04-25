@@ -5,7 +5,8 @@ def userSchema(user) -> dict:
             "userName": user["userName"],
             "age": user["age"],
             "email": user["email"],
-            "isActive": user["isActive"]
+            "isActive": user["isActive"],
+            "password": user["password"]
             }
 
 def usersSchema(users) -> list:

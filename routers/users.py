@@ -1,13 +1,24 @@
-from fastapi import APIRouter, HTTPException, status
+from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from jose import jwt, JWTError      
+from passlib.context import CryptContext
+
 from db.models.userModel import User
+from db.models.userDBModel import UserDB
 from db.client import dbClient
 from db.schemas.user import userSchema, usersSchema
+
+from config import settings
 
 from bson import ObjectId
 
 
 
 routerUsers = APIRouter(prefix = "/users", responses = {"404": {"ERROR": "Ruta no encontrada"}}, tags = ["PRODUCTS"])
+oauth2 = OAuth2PasswordBearer(tokenUrl = "login")
+
+crypt = CryptContext(schemes = ["bcrypt"])
+
 
 ##---METODO GET TODOS LOS USERS
 @routerUsers.get("/", response_model = list[User])
@@ -46,6 +57,48 @@ async def createUser(user: User):
 
     newUser = userSchema(dbClient.local.users.find_one({"_id": idUser}))
     return User(**newUser)
+
+
+##--- METODO POST PARA LOGEAR UN USUARIO    
+@routerUsers.post("/login", status_code = status.HTTP_200_OK)
+async def login(form: OAuth2PasswordRequestForm = Depends()):
+    user = dbClient.local.users.find_one({"userName": form.username})
+
+    if not user:
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "El usuario no es correcto")
+
+    userWithPassword = searhUserForLogin("userName", form.username )
+
+    if not crypt.verify(form.password, userWithPassword.password):
+        raise HTTPException(status_code = status.HTTP_400_BAD_REQUEST, detail = "La contrasena no es correcta")
+
+    return {"": "login exitoso"}
+
+
+
+
+##--- METODO POST PARA REGISTAR USUARIOS CON CLAVE ENCRIPTADA
+@routerUsers.post("/register", response_model = User, status_code = status.HTTP_201_CREATED)
+async def createUser(user: UserDB):
+    if type(searchUser("userName", user.userName)) == User:
+        raise HTTPException(status_code = status.HTTP_409_CONFLICT, detail = "Ya existe un usuario con este nombre de usuario")
+    
+    if type(searchUser("email", user.email)) == User:
+        raise HTTPException(status_code = status.HTTP_409_CONFLICT, detail = "Ya existe un usuario con este email")
+    
+    userDict = dict(user)
+    del userDict["id"]
+
+    hashedPassword = crypt.hash(userDict["password"])
+    userDict["password"] = hashedPassword
+
+    idUser = dbClient.local.users.insert_one(userDict).inserted_id
+
+    newUser = userSchema(dbClient.local.users.find_one({"_id": idUser}))
+
+    return User(**newUser)
+
+
 
 ##---METODO DELETE
 @routerUsers.delete("/{id}", status_code = status.HTTP_204_NO_CONTENT)
@@ -93,3 +146,25 @@ def searchUser(key: str, value) -> User:
     except:
         # raise HTTPException( status_code = status.HTTP_404_NOT_FOUND, detail = "Usuario no encontrado" )
         return {"error": "No se ha encontrado el usuario"}
+    
+def searhUserForLogin(key: str, value) -> UserDB:
+    try:
+        user = dbClient.local.users.find_one({key: value})
+        if not user:
+            raise HTTPException( status_code = status.HTTP_404_NOT_FOUND, detail = f"Usuario no encontrado con {key} = {value}" )
+        
+        userDict = userSchema(user)
+
+        return UserDB(**userDict)
+    except:
+        return {"error": "No se ha encontrado el usuario"}
+    
+
+def formToDict(form: OAuth2PasswordRequestForm) -> dict:
+    return {
+        "userName": form.username,
+        "age": form.age,
+        "email": form.email,
+        "isActive": form.isactive,
+        "password": form.password
+    }
